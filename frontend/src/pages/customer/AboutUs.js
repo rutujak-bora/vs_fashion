@@ -70,7 +70,7 @@ export default function AboutUs() {
                     <img src="/images/about/artisan work.jpeg" alt="Artisan at work" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                   </div>
                   <div className="aspect-square rounded-lg overflow-hidden border border-gray-100 shadow-sm">
-                    <img src="/images/about/artisan at work.jpeg" alt="Artisan at work" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                    <img src="/images/about/new.jpeg" alt="Artisan at work" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                   </div>
                 </div>
               </div>
@@ -79,7 +79,7 @@ export default function AboutUs() {
                   <img src="/images/about/Traditional Fabrics.jpeg" alt="Traditional fabrics" className="w-full h-full object-cover" />
                 </div>
                 <div className="absolute -bottom-6 -right-6 w-1/2 aspect-square rounded-lg overflow-hidden shadow-lg border-4 border-white hidden md:block">
-                  <img src="/images/about/Process deatils.jpeg" alt="Process details" className="w-full h-full object-cover" />
+                  <img src="/images/about/indise our traditional workshop.jpeg" alt="Inside our traditional workshop" className="w-full h-full object-cover" />
                 </div>
               </div>
             </div>
@@ -106,7 +106,7 @@ export default function AboutUs() {
                   <img src="/images/about/traditinal wodden block.jpeg" alt="Traditional wooden block" className="w-full h-full object-cover" />
                 </div>
                 <div className="aspect-[3/4] rounded-2xl overflow-hidden shadow-lg border-4 border-white transform transition duration-500 hover:-translate-y-2 lg:translate-y-8">
-                  <img src="/images/about/indise our traditional workshop.jpeg" alt="Inside our traditional workshop" className="w-full h-full object-cover" />
+                  <img src="/images/about/Process deatils.jpeg" alt="Process details" className="w-full h-full object-cover" />
                 </div>
               </div>
 

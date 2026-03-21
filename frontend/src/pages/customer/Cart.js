@@ -104,7 +104,9 @@ export default function Cart() {
             >
               <div className="w-24 h-32 bg-gray-100 overflow-hidden flex-shrink-0">
                 <img
-                  src={item.product_image ? `${BACKEND_URL}${item.product_image}` : 'https://via.placeholder.com/96x128'}
+                  src={item.product_image 
+                    ? (item.product_image.startsWith('http') ? item.product_image : `${BACKEND_URL}${item.product_image}`)
+                    : 'https://via.placeholder.com/96x128'}
                   alt={item.product_name}
                   className="w-full h-full object-cover"
                 />

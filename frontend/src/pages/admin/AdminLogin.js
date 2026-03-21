@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'sonner';
 import useStore from '@/store/useStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { ArrowLeft } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -86,12 +87,16 @@ export default function AdminLogin() {
           </Button>
         </form>
 
-        <p className="mt-6 text-center text-xs text-gray-500">
-          Default credentials:<br />
-          Email: vsfashiiiion@gmail.com<br />
-          Password: vs@54321
-        </p>
+        <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-[#4A2836] transition-colors"
+          >
+            <ArrowLeft size={16} />
+            Back to store
+          </Link>
+        </div>
       </div>
-    </div>
+    </div >
   );
 }

@@ -111,7 +111,9 @@ export default function ProductDetail() {
         <div>
           <div className="aspect-[3/4] bg-gray-100 mb-4 overflow-hidden">
             <img
-              src={product.images?.[selectedImage] ? `${BACKEND_URL}${product.images[selectedImage]}` : 'https://via.placeholder.com/600x800'}
+              src={product.images?.[selectedImage] 
+                ? (product.images[selectedImage].startsWith('http') ? product.images[selectedImage] : `${BACKEND_URL}${product.images[selectedImage]}`)
+                : 'https://via.placeholder.com/600x800'}
               alt={product.name}
               data-testid="product-main-image"
               className="w-full h-full object-cover"
@@ -129,7 +131,7 @@ export default function ProductDetail() {
                 }`}
               >
                 <img
-                  src={`${BACKEND_URL}${img}`}
+                  src={img.startsWith('http') ? img : `${BACKEND_URL}${img}`}
                   alt={`${product.name} ${index + 1}`}
                   className="w-full h-full object-cover"
                 />

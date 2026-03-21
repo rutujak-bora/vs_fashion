@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Upload } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -18,11 +18,14 @@ export default function CollectionManagement() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     image_url: '',
-    is_active: true
+    is_active: true,
+    show_on_home: false,
+    home_image_url: ''
   });
 
   useEffect(() => {
@@ -37,6 +40,26 @@ export default function CollectionManagement() {
       console.error('Error fetching collections:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleImageUpload = async (e, field) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    try {
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+      const response = await axios.post(`${API}/products/upload`, uploadFormData, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
+      });
+      setFormData(prev => ({ ...prev, [field]: response.data.url }));
+      toast.success('Image uploaded successfully');
+    } catch (error) {
+      toast.error('Failed to upload image');
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -70,7 +93,9 @@ export default function CollectionManagement() {
       name: collection.name,
       description: collection.description,
       image_url: collection.image_url,
-      is_active: collection.is_active
+      is_active: collection.is_active,
+      show_on_home: collection.show_on_home || false,
+      home_image_url: collection.home_image_url || ''
     });
     setDialogOpen(true);
   };
@@ -94,7 +119,9 @@ export default function CollectionManagement() {
       name: '',
       description: '',
       image_url: '',
-      is_active: true
+      is_active: true,
+      show_on_home: false,
+      home_image_url: ''
     });
     setEditingId(null);
   };
@@ -147,25 +174,75 @@ export default function CollectionManagement() {
                 />
               </div>
               <div>
-                <Label htmlFor="image_url">Image URL (optional)</Label>
-                <Input
-                  id="image_url"
-                  data-testid="collection-image-input"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  className="mt-1"
-                />
+                <Label htmlFor="image_url">Collection Image URL (optional)</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    id="image_url"
+                    data-testid="collection-image-input"
+                    value={formData.image_url}
+                    onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                    className="flex-1"
+                  />
+                  <label className="bg-gray-100 p-2 rounded cursor-pointer hover:bg-gray-200 border">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleImageUpload(e, 'image_url')}
+                      disabled={uploading}
+                      className="hidden"
+                    />
+                    <Upload size={20} className="text-gray-500" />
+                  </label>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="is_active"
-                  data-testid="collection-active-checkbox"
-                  checked={formData.is_active}
-                  onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
-                />
-                <Label htmlFor="is_active">Active</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="is_active"
+                    data-testid="collection-active-checkbox"
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({ ...formData, is_active: e.target.checked })}
+                  />
+                  <Label htmlFor="is_active">Active</Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="show_on_home"
+                    data-testid="collection-home-checkbox"
+                    checked={formData.show_on_home}
+                    onChange={(e) => setFormData({ ...formData, show_on_home: e.target.checked })}
+                  />
+                  <Label htmlFor="show_on_home">Show on Home Page</Label>
+                </div>
               </div>
+              {formData.show_on_home && (
+                <div>
+                  <Label htmlFor="home_image_url">Home Page Image URL</Label>
+                  <div className="flex gap-2 mt-1">
+                    <Input
+                      id="home_image_url"
+                      data-testid="collection-home-image-input"
+                      value={formData.home_image_url}
+                      onChange={(e) => setFormData({ ...formData, home_image_url: e.target.value })}
+                      className="flex-1"
+                      placeholder="Image for home page (8 collections grid)"
+                    />
+                    <label className="bg-gray-100 p-2 rounded cursor-pointer hover:bg-gray-200 border">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleImageUpload(e, 'home_image_url')}
+                        disabled={uploading}
+                        className="hidden"
+                      />
+                      <Upload size={20} className="text-gray-500" />
+                    </label>
+                  </div>
+                  {uploading && <p className="text-xs text-gray-500 mt-1">Uploading...</p>}
+                </div>
+              )}
               <Button
                 type="submit"
                 data-testid="save-collection-btn"
@@ -186,6 +263,7 @@ export default function CollectionManagement() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Home Page</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
@@ -201,6 +279,17 @@ export default function CollectionManagement() {
                       }`}>
                         {collection.is_active ? 'Active' : 'Inactive'}
                       </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {collection.show_on_home ? (
+                        <span className="px-2 py-1 text-xs rounded bg-purple-100 text-purple-800">
+                          Yes
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-800">
+                          No
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       <button

@@ -79,6 +79,8 @@ class Collection(BaseModel):
     description: Optional[str] = ""
     image_url: Optional[str] = ""
     is_active: bool = True
+    show_on_home: bool = False
+    home_image_url: Optional[str] = ""
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -87,6 +89,8 @@ class CollectionCreate(BaseModel):
     description: Optional[str] = ""
     image_url: Optional[str] = ""
     is_active: bool = True
+    show_on_home: bool = False
+    home_image_url: Optional[str] = ""
 
 
 class Product(BaseModel):
@@ -357,8 +361,12 @@ async def admin_login(user_data: UserLogin):
 
 
 @api_router.get("/collections", response_model=List[Collection])
-async def get_collections():
-    collections = await db.collections.find({"is_active": True}, {"_id": 0}).to_list(1000)
+async def get_collections(show_on_home: Optional[bool] = None):
+    query = {"is_active": True}
+    if show_on_home is not None:
+        query["show_on_home"] = show_on_home
+    
+    collections = await db.collections.find(query, {"_id": 0}).to_list(1000)
     for coll in collections:
         if isinstance(coll.get('created_at'), str):
             coll['created_at'] = datetime.fromisoformat(coll['created_at'])
@@ -398,7 +406,7 @@ async def upload_image(file: UploadFile = File(...), current_user: dict = Depend
     s3_bucket = os.environ.get("AWS_S3_BUCKET_NAME")
     aws_access_key = os.environ.get("AWS_ACCESS_KEY_ID")
     aws_secret_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
-    aws_region = os.environ.get("AWS_REGION", "us-east-1")
+    aws_region = os.environ.get("AWS_REGION", "ap-south-1")
 
     if s3_bucket and aws_access_key and aws_secret_key:
         try:
@@ -413,7 +421,8 @@ async def upload_image(file: UploadFile = File(...), current_user: dict = Depend
                 Bucket=s3_bucket,
                 Key=f"images/{filename}",
                 Body=contents,
-                ContentType=file.content_type
+                ContentType=file.content_type,
+                ACL='public-read'
             )
             s3_url = f"https://{s3_bucket}.s3.{aws_region}.amazonaws.com/images/{filename}"
             return {"url": s3_url}

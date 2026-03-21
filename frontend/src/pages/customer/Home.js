@@ -12,6 +12,7 @@ const API = `${BACKEND_URL}/api`;
 export default function Home() {
   const [banners, setBanners] = useState([]);
   const [trendingProducts, setTrendingProducts] = useState([]);
+  const [homeCollections, setHomeCollections] = useState([]);
   const [currentBanner, setCurrentBanner] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -21,11 +22,12 @@ export default function Home() {
 
   const fetchData = async () => {
     try {
-      const [bannersRes, productsRes] = await Promise.all([
+      const [bannersRes, productsRes, collectionsRes] = await Promise.all([
         axios.get(`${API}/banners`),
-        axios.get(`${API}/products?is_trending=true`)
+        axios.get(`${API}/products?is_trending=true`),
+        axios.get(`${API}/collections?show_on_home=true`)
       ]);
-      
+
       if (bannersRes.data.length > 0) {
         setBanners(bannersRes.data);
       } else {
@@ -51,8 +53,9 @@ export default function Home() {
           }
         ]);
       }
-      
+
       setTrendingProducts(productsRes.data);
+      setHomeCollections(collectionsRes.data.slice(0, 8));
     } catch (error) {
       console.error('Error fetching data:', error);
       // Even on error, provide fallbacks
@@ -107,7 +110,9 @@ export default function Home() {
           <>
             <div className="relative h-full">
               <img
-                src={banners[currentBanner]?.image_url}
+                src={banners[currentBanner]?.image_url?.startsWith('http')
+                  ? banners[currentBanner]?.image_url
+                  : `${BACKEND_URL}${banners[currentBanner]?.image_url}`}
                 alt={banners[currentBanner]?.title}
                 className="w-full h-full object-cover"
               />
@@ -162,9 +167,8 @@ export default function Home() {
                   key={index}
                   data-testid={`hero-indicator-${index}`}
                   onClick={() => setCurrentBanner(index)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    index === currentBanner ? 'bg-white w-8' : 'bg-white/50'
-                  }`}
+                  className={`w-2 h-2 rounded-full transition-all ${index === currentBanner ? 'bg-white w-8' : 'bg-white/50'
+                    }`}
                 />
               ))}
             </div>
@@ -180,7 +184,7 @@ export default function Home() {
         <div className="traditional-divider mb-12">
           <span>✦</span>
         </div>
-        
+
         <div className="flex items-center justify-between mb-12">
           <h2 className="text-4xl traditional-text" style={{ fontFamily: 'Playfair Display', color: '#4A2836' }}>
             Trending Now
@@ -203,6 +207,52 @@ export default function Home() {
         ) : (
           <p className="text-center text-gray-500">No trending products available</p>
         )}
+      </section>
+
+      {/* Home Collections Section */}
+      <section className="py-24 px-6 md:px-12 bg-[#F8F5F2]" data-testid="collections-section">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl traditional-text mb-4" style={{ fontFamily: 'Playfair Display', color: '#4A2836' }}>
+              Our Collections
+            </h2>
+            <div className="w-24 h-1 bg-[#8B1B4A] mx-auto"></div>
+          </div>
+
+          {homeCollections.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
+              {homeCollections.map((collection) => (
+                <Link
+                  key={collection.id}
+                  to={`/collection/${collection.id}`}
+                  className="group relative overflow-hidden aspect-[4/5] shadow-md hover:shadow-xl transition-all duration-500 rounded-sm"
+                >
+                  <img
+                    src={(() => {
+                      const img = collection.home_image_url || collection.image_url;
+                      if (!img) return '/images/placeholder.jpg';
+                      return img.startsWith('http') ? img : `${BACKEND_URL}${img}`;
+                    })()}
+                    alt={collection.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6 text-white text-center">
+                    <h3 className="text-xl md:text-2xl mb-2 font-serif uppercase tracking-wider" style={{ fontFamily: 'Playfair Display' }}>
+                      {collection.name}
+                    </h3>
+                    <div className="overflow-hidden h-0 group-hover:h-8 transition-all duration-300">
+                      <span className="text-sm border-b border-white pb-1 inline-block">Explore Now</span>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-400 py-12">
+              <p>No collections featured on home page yet.</p>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   );

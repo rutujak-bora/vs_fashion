@@ -328,7 +328,7 @@ export default function ProductManagement() {
                 <div className="mt-2 grid grid-cols-4 gap-2">
                   {formData.images.map((img, index) => (
                     <div key={index} className="relative aspect-square bg-gray-100 border border-gray-200">
-                      <img src={`${BACKEND_URL}${img}`} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
+                      <img src={img.startsWith('http') ? img : `${BACKEND_URL}${img}`} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => setFormData(prev => ({ ...prev, images: prev.images.filter((_, i) => i !== index) }))}
@@ -422,7 +422,7 @@ export default function ProductManagement() {
                       <div className="flex items-center gap-3">
                         {product.images?.[0] && (
                           <img
-                            src={`${BACKEND_URL}${product.images[0]}`}
+                            src={product.images[0].startsWith('http') ? product.images[0] : `${BACKEND_URL}${product.images[0]}`}
                             alt={product.name}
                             className="w-12 h-12 object-cover bg-gray-100"
                           />

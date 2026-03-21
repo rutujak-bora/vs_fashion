@@ -18,7 +18,9 @@ export default function ProductCard({ product }) {
       <Link to={`/product/${product.id}`} className="group block">
         <div className="relative overflow-hidden bg-gray-100 aspect-[3/4] mb-4 traditional-frame">
           <img
-            src={product.images?.[0] ? `${BACKEND_URL}${product.images[0]}` : 'https://via.placeholder.com/400x533'}
+            src={product.images?.[0] 
+              ? (product.images[0].startsWith('http') ? product.images[0] : `${BACKEND_URL}${product.images[0]}`)
+              : 'https://via.placeholder.com/400x533'}
             alt={product.name}
             className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
