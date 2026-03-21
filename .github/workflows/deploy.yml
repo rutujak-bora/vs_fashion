@@ -21,7 +21,7 @@ jobs:
       - name: Build Frontend
         working-directory: ./frontend
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run build
         env:
           REACT_APP_BACKEND_URL: ${{ secrets.REACT_APP_BACKEND_URL }}
@@ -34,7 +34,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           source: "."
           target: "/home/${{ secrets.EC2_USER }}/web-main"
-          exclude: ".git, node_modules, frontend/node_modules, backend/__pycache__"
+          exclude: ".git, node_modules, frontend/node_modules, backend/__pycache__, main-vs-main, test_reports, memory"
 
       - name: Execute Deployment Script on EC2
         uses: appleboy/ssh-action@v1.0.0
