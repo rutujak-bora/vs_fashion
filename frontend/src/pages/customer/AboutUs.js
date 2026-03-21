@@ -67,10 +67,10 @@ export default function AboutUs() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="aspect-square rounded-lg overflow-hidden border border-gray-100 shadow-sm">
-                    <img src="/images/about/about2.jpeg" alt="Artisan at work" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                    <img src="/images/about/artisan work.jpeg" alt="Artisan at work" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                   </div>
                   <div className="aspect-square rounded-lg overflow-hidden border border-gray-100 shadow-sm">
-                    <img src="/images/about/about1.jpeg" alt="Artisan at work" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
+                    <img src="/images/about/artisan at work.jpeg" alt="Artisan at work" className="w-full h-full object-cover hover:scale-105 transition-transform duration-500" />
                   </div>
                 </div>
               </div>
