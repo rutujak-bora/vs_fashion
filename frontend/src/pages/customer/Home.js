@@ -25,10 +25,57 @@ export default function Home() {
         axios.get(`${API}/banners`),
         axios.get(`${API}/products?is_trending=true`)
       ]);
-      setBanners(bannersRes.data);
+      
+      if (bannersRes.data.length > 0) {
+        setBanners(bannersRes.data);
+      } else {
+        // Fallback to local images if API has no banners
+        setBanners([
+          {
+            id: 'local-1',
+            image_url: '/images/Carousel/Carousel img1.jpeg',
+            title: 'Welcome to VS Fashion',
+            content: 'Discover our latest collections and traditional wear.'
+          },
+          {
+            id: 'local-2',
+            image_url: '/images/Carousel/Carousel img2.jpeg',
+            title: 'Exquisite Silk Sarees',
+            content: 'Elegance for every occasion.'
+          },
+          {
+            id: 'local-3',
+            image_url: '/images/Carousel/Carousel img3.jpeg',
+            title: 'Modern Traditional Style',
+            content: 'Where heritage meets fashion.'
+          }
+        ]);
+      }
+      
       setTrendingProducts(productsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
+      // Even on error, provide fallbacks
+      setBanners([
+        {
+          id: 'local-1',
+          image_url: '/images/Carousel/Carousel img1.jpeg',
+          title: 'Welcome to VS Fashion',
+          content: 'Discover our latest collections and traditional wear.'
+        },
+        {
+          id: 'local-2',
+          image_url: '/images/Carousel/Carousel img2.jpeg',
+          title: 'Exquisite Silk Sarees',
+          content: 'Elegance for every occasion.'
+        },
+        {
+          id: 'local-3',
+          image_url: '/images/Carousel/Carousel img3.jpeg',
+          title: 'Modern Traditional Style',
+          content: 'Where heritage meets fashion.'
+        }
+      ]);
     } finally {
       setLoading(false);
     }

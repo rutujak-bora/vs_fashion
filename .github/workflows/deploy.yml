@@ -58,7 +58,7 @@ jobs:
 
             # If you are using Nginx to serve the frontend, copy build files to the appropriate directory:
             echo "Copying frontend build files to Nginx web root"
-            # sudo cp -r ../frontend/build/* /var/www/html/ # Uncomment if needed
+            sudo cp -r /home/${{ secrets.EC2_USER }}/web-main/frontend/build/* /var/www/html/
             
             # Restart Nginx
             sudo systemctl restart nginx
