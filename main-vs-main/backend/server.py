@@ -1,0 +1,810 @@
+from fastapi import FastAPI, APIRouter, HTTPException, UploadFile, File, Form, Depends
+from fastapi.staticfiles import StaticFiles
+from dotenv import load_dotenv
+from starlette.middleware.cors import CORSMiddleware
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
+import logging
+from pathlib import Path
+from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from typing import List, Optional
+import uuid
+from datetime import datetime, timezone
+from passlib.context import CryptContext
+from jose import JWTError, jwt
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import aiosmtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import shutil
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+mongo_url = os.environ['MONGO_URL']
+client = AsyncIOMotorClient(mongo_url)
+db = client[os.environ['DB_NAME']]
+
+app = FastAPI()
+api_router = APIRouter(prefix="/api")
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+SECRET_KEY = os.environ.get("JWT_SECRET_KEY", "your-secret-key-change-in-production")
+ALGORITHM = "HS256"
+security = HTTPBearer()
+
+UPLOAD_DIR = ROOT_DIR / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
+
+
+class User(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    full_name: str
+    email: EmailStr
+    mobile: str
+    address: str
+    password_hash: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class UserRegister(BaseModel):
+    full_name: str
+    email: EmailStr
+    mobile: str
+    address: str
+    password: str
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class Admin(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    email: EmailStr
+    password_hash: str
+
+
+class Collection(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CollectionCreate(BaseModel):
+    name: str
+    description: Optional[str] = ""
+    image_url: Optional[str] = ""
+    is_active: bool = True
+
+
+class Product(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    collection_id: str
+    description: str
+    sizes: List[str]
+    color: str
+    size_guide: Optional[str] = ""
+    quantity: int
+    price: float
+    discount_price: Optional[float] = None
+    is_trending: bool = False
+    is_new_arrival: bool = False
+    is_best_seller: bool = False
+    images: List[str] = []
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ProductResponse(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    name: str
+    collection_id: str
+    collection_name: Optional[str] = ""
+    description: str
+    sizes: List[str]
+    color: str
+    size_guide: Optional[str] = ""
+    quantity: int
+    price: float
+    discount_price: Optional[float] = None
+    is_trending: bool
+    is_new_arrival: bool
+    is_best_seller: bool
+    images: List[str]
+    is_active: bool
+    created_at: datetime
+
+
+class CartItem(BaseModel):
+    product_id: str
+    quantity: int
+    size: str
+
+
+class Cart(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    items: List[CartItem] = []
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class OrderItem(BaseModel):
+    product_id: str
+    product_name: str
+    size: str
+    quantity: int
+    price: float
+
+
+class Order(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    customer_name: str
+    customer_email: str
+    customer_mobile: str
+    delivery_address: str
+    items: List[OrderItem]
+    total_amount: float
+    status: str = "Pending"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class OrderCreate(BaseModel):
+    items: List[OrderItem]
+    total_amount: float
+
+
+class Banner(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    image_url: str
+    title: str
+    content: str
+    order: int = 0
+    is_active: bool = True
+
+
+class BannerCreate(BaseModel):
+    image_url: str
+    title: str
+    content: str
+    order: int = 0
+    is_active: bool = True
+
+
+class ContentPage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str
+    content: str
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class ContentUpdate(BaseModel):
+    content: str
+
+
+def hash_password(password: str) -> str:
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
+def create_token(data: dict) -> str:
+    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    token = credentials.credentials
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id: str = payload.get("sub")
+        user_type: str = payload.get("type")
+        if user_id is None:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return {"id": user_id, "type": user_type}
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+
+async def get_current_admin(current_user: dict = Depends(get_current_user)):
+    if current_user["type"] != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user
+
+
+async def send_order_email(order: Order):
+    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    smtp_user = os.environ.get("SMTP_USER", "")
+    smtp_password = os.environ.get("SMTP_PASSWORD", "")
+    
+    if not smtp_user or not smtp_password:
+        logging.warning("SMTP credentials not configured. Skipping email.")
+        return
+    
+    message = MIMEMultipart()
+    message["From"] = smtp_user
+    message["To"] = "vsfashiiiion@gmail.com"
+    message["Subject"] = f"New Order #{order.id[:8]}"
+    
+    items_html = ""
+    for item in order.items:
+        items_html += f"""
+        <tr>
+            <td style="padding: 10px; border: 1px solid #ddd;">{item.product_name}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{item.size}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">{item.quantity}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">₹{item.price:.2f}</td>
+            <td style="padding: 10px; border: 1px solid #ddd;">₹{item.price * item.quantity:.2f}</td>
+        </tr>
+        """
+    
+    html = f"""
+    <html>
+        <body style="font-family: Arial, sans-serif;">
+            <h2>New Order Received</h2>
+            <h3>Order Details</h3>
+            <p><strong>Order ID:</strong> {order.id}</p>
+            <p><strong>Order Date:</strong> {order.created_at.strftime('%Y-%m-%d %H:%M:%S')}</p>
+            
+            <h3>Customer Information</h3>
+            <p><strong>Name:</strong> {order.customer_name}</p>
+            <p><strong>Email:</strong> {order.customer_email}</p>
+            <p><strong>Mobile:</strong> {order.customer_mobile}</p>
+            <p><strong>Delivery Address:</strong> {order.delivery_address}</p>
+            
+            <h3>Order Items</h3>
+            <table style="border-collapse: collapse; width: 100%;">
+                <thead>
+                    <tr>
+                        <th style="padding: 10px; border: 1px solid #ddd; background-color: #f2f2f2;">Product</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; background-color: #f2f2f2;">Size</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; background-color: #f2f2f2;">Quantity</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; background-color: #f2f2f2;">Price</th>
+                        <th style="padding: 10px; border: 1px solid #ddd; background-color: #f2f2f2;">Subtotal</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {items_html}
+                </tbody>
+            </table>
+            
+            <h3>Total Amount: ₹{order.total_amount:.2f}</h3>
+        </body>
+    </html>
+    """
+    
+    message.attach(MIMEText(html, "html"))
+    
+    try:
+        await aiosmtplib.send(
+            message,
+            hostname=smtp_host,
+            port=smtp_port,
+            username=smtp_user,
+            password=smtp_password,
+            start_tls=True,
+        )
+        logging.info(f"Order email sent for order {order.id}")
+    except Exception as e:
+        logging.error(f"Failed to send order email: {str(e)}")
+
+
+@api_router.get("/")
+async def root():
+    return {"message": "VS Fashion API"}
+
+
+@api_router.post("/auth/register")
+async def register(user_data: UserRegister):
+    existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    user = User(
+        full_name=user_data.full_name,
+        email=user_data.email,
+        mobile=user_data.mobile,
+        address=user_data.address,
+        password_hash=hash_password(user_data.password)
+    )
+    
+    doc = user.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.users.insert_one(doc)
+    
+    token = create_token({"sub": user.id, "type": "user"})
+    return {"token": token, "user": {"id": user.id, "email": user.email, "full_name": user.full_name}}
+
+
+@api_router.post("/auth/login")
+async def login(user_data: UserLogin):
+    user = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    if not user or not verify_password(user_data.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = create_token({"sub": user["id"], "type": "user"})
+    return {"token": token, "user": {"id": user["id"], "email": user["email"], "full_name": user["full_name"]}}
+
+
+@api_router.post("/auth/admin/login")
+async def admin_login(user_data: UserLogin):
+    admin = await db.admins.find_one({"email": user_data.email}, {"_id": 0})
+    if not admin or not verify_password(user_data.password, admin["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    
+    token = create_token({"sub": admin["id"], "type": "admin"})
+    return {"token": token, "admin": {"id": admin["id"], "email": admin["email"]}}
+
+
+@api_router.get("/collections", response_model=List[Collection])
+async def get_collections():
+    collections = await db.collections.find({"is_active": True}, {"_id": 0}).to_list(1000)
+    for coll in collections:
+        if isinstance(coll.get('created_at'), str):
+            coll['created_at'] = datetime.fromisoformat(coll['created_at'])
+    return collections
+
+
+@api_router.post("/collections", response_model=Collection)
+async def create_collection(coll_data: CollectionCreate, current_user: dict = Depends(get_current_admin)):
+    collection = Collection(**coll_data.model_dump())
+    doc = collection.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.collections.insert_one(doc)
+    return collection
+
+
+@api_router.put("/collections/{collection_id}", response_model=Collection)
+async def update_collection(collection_id: str, coll_data: CollectionCreate, current_user: dict = Depends(get_current_admin)):
+    doc = coll_data.model_dump()
+    await db.collections.update_one({"id": collection_id}, {"$set": doc})
+    updated = await db.collections.find_one({"id": collection_id}, {"_id": 0})
+    if isinstance(updated.get('created_at'), str):
+        updated['created_at'] = datetime.fromisoformat(updated['created_at'])
+    return updated
+
+
+@api_router.delete("/collections/{collection_id}")
+async def delete_collection(collection_id: str, current_user: dict = Depends(get_current_admin)):
+    await db.collections.delete_one({"id": collection_id})
+    return {"message": "Collection deleted"}
+
+
+@api_router.post("/products/upload")
+async def upload_image(file: UploadFile = File(...), current_user: dict = Depends(get_current_admin)):
+    file_ext = Path(file.filename).suffix
+    filename = f"{uuid.uuid4()}{file_ext}"
+    file_path = UPLOAD_DIR / filename
+    
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    return {"url": f"/uploads/{filename}"}
+
+
+@api_router.get("/products", response_model=List[ProductResponse])
+async def get_products(
+    collection_id: Optional[str] = None,
+    is_trending: Optional[bool] = None,
+    is_new_arrival: Optional[bool] = None,
+    is_best_seller: Optional[bool] = None
+):
+    query = {"is_active": True}
+    if collection_id:
+        query["collection_id"] = collection_id
+    if is_trending is not None:
+        query["is_trending"] = is_trending
+    if is_new_arrival is not None:
+        query["is_new_arrival"] = is_new_arrival
+    if is_best_seller is not None:
+        query["is_best_seller"] = is_best_seller
+    
+    products = await db.products.find(query, {"_id": 0}).to_list(1000)
+    
+    for product in products:
+        if isinstance(product.get('created_at'), str):
+            product['created_at'] = datetime.fromisoformat(product['created_at'])
+        
+        collection = await db.collections.find_one({"id": product["collection_id"]}, {"_id": 0})
+        product["collection_name"] = collection["name"] if collection else ""
+    
+    return products
+
+
+@api_router.get("/products/{product_id}", response_model=ProductResponse)
+async def get_product(product_id: str):
+    product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if isinstance(product.get('created_at'), str):
+        product['created_at'] = datetime.fromisoformat(product['created_at'])
+    
+    collection = await db.collections.find_one({"id": product["collection_id"]}, {"_id": 0})
+    product["collection_name"] = collection["name"] if collection else ""
+    
+    return product
+
+
+@api_router.post("/products")
+async def create_product(
+    name: str = Form(...),
+    collection_id: str = Form(...),
+    description: str = Form(...),
+    sizes: str = Form(...),
+    color: str = Form(...),
+    size_guide: str = Form(""),
+    quantity: int = Form(...),
+    price: float = Form(...),
+    discount_price: Optional[float] = Form(None),
+    is_trending: bool = Form(False),
+    is_new_arrival: bool = Form(False),
+    is_best_seller: bool = Form(False),
+    images: str = Form("[]"),
+    current_user: dict = Depends(get_current_admin)
+):
+    import json
+    sizes_list = json.loads(sizes) if isinstance(sizes, str) else sizes
+    images_list = json.loads(images) if isinstance(images, str) else images
+    
+    product = Product(
+        name=name,
+        collection_id=collection_id,
+        description=description,
+        sizes=sizes_list,
+        color=color,
+        size_guide=size_guide,
+        quantity=quantity,
+        price=price,
+        discount_price=discount_price,
+        is_trending=is_trending,
+        is_new_arrival=is_new_arrival,
+        is_best_seller=is_best_seller,
+        images=images_list
+    )
+    
+    doc = product.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.products.insert_one(doc)
+    
+    return {"id": product.id, "message": "Product created"}
+
+
+@api_router.put("/products/{product_id}")
+async def update_product(
+    product_id: str,
+    name: str = Form(...),
+    collection_id: str = Form(...),
+    description: str = Form(...),
+    sizes: str = Form(...),
+    color: str = Form(...),
+    size_guide: str = Form(""),
+    quantity: int = Form(...),
+    price: float = Form(...),
+    discount_price: Optional[float] = Form(None),
+    is_trending: bool = Form(False),
+    is_new_arrival: bool = Form(False),
+    is_best_seller: bool = Form(False),
+    is_active: bool = Form(True),
+    images: str = Form("[]"),
+    current_user: dict = Depends(get_current_admin)
+):
+    import json
+    sizes_list = json.loads(sizes) if isinstance(sizes, str) else sizes
+    images_list = json.loads(images) if isinstance(images, str) else images
+    
+    update_data = {
+        "name": name,
+        "collection_id": collection_id,
+        "description": description,
+        "sizes": sizes_list,
+        "color": color,
+        "size_guide": size_guide,
+        "quantity": quantity,
+        "price": price,
+        "discount_price": discount_price,
+        "is_trending": is_trending,
+        "is_new_arrival": is_new_arrival,
+        "is_best_seller": is_best_seller,
+        "is_active": is_active,
+        "images": images_list
+    }
+    
+    await db.products.update_one({"id": product_id}, {"$set": update_data})
+    return {"message": "Product updated"}
+
+
+@api_router.delete("/products/{product_id}")
+async def delete_product(product_id: str, current_user: dict = Depends(get_current_admin)):
+    await db.products.delete_one({"id": product_id})
+    return {"message": "Product deleted"}
+
+
+@api_router.get("/cart")
+async def get_cart(current_user: dict = Depends(get_current_user)):
+    cart = await db.carts.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    if not cart:
+        return {"items": []}
+    
+    if isinstance(cart.get('updated_at'), str):
+        cart['updated_at'] = datetime.fromisoformat(cart['updated_at'])
+    
+    items_with_details = []
+    for item in cart.get("items", []):
+        product = await db.products.find_one({"id": item["product_id"]}, {"_id": 0})
+        if product:
+            items_with_details.append({
+                "product_id": item["product_id"],
+                "quantity": item["quantity"],
+                "size": item["size"],
+                "product_name": product["name"],
+                "product_price": product.get("discount_price") or product["price"],
+                "product_image": product["images"][0] if product.get("images") else ""
+            })
+    
+    return {"items": items_with_details}
+
+
+@api_router.post("/cart")
+async def add_to_cart(item: CartItem, current_user: dict = Depends(get_current_user)):
+    cart = await db.carts.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    
+    if not cart:
+        cart = Cart(user_id=current_user["id"], items=[item.model_dump()])
+        doc = cart.model_dump()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        await db.carts.insert_one(doc)
+    else:
+        items = cart.get("items", [])
+        found = False
+        for i, existing_item in enumerate(items):
+            if existing_item["product_id"] == item.product_id and existing_item["size"] == item.size:
+                items[i]["quantity"] += item.quantity
+                found = True
+                break
+        
+        if not found:
+            items.append(item.model_dump())
+        
+        await db.carts.update_one(
+            {"user_id": current_user["id"]},
+            {"$set": {"items": items, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    
+    return {"message": "Item added to cart"}
+
+
+@api_router.delete("/cart/{product_id}")
+async def remove_from_cart(product_id: str, size: str, current_user: dict = Depends(get_current_user)):
+    cart = await db.carts.find_one({"user_id": current_user["id"]}, {"_id": 0})
+    if cart:
+        items = [item for item in cart.get("items", []) if not (item["product_id"] == product_id and item["size"] == size)]
+        await db.carts.update_one(
+            {"user_id": current_user["id"]},
+            {"$set": {"items": items, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    
+    return {"message": "Item removed from cart"}
+
+
+@api_router.post("/orders")
+async def create_order(order_data: OrderCreate, current_user: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    order = Order(
+        user_id=current_user["id"],
+        customer_name=user["full_name"],
+        customer_email=user["email"],
+        customer_mobile=user["mobile"],
+        delivery_address=user["address"],
+        items=order_data.items,
+        total_amount=order_data.total_amount
+    )
+    
+    for item in order_data.items:
+        product = await db.products.find_one({"id": item.product_id}, {"_id": 0})
+        if product and product["quantity"] >= item.quantity:
+            new_quantity = product["quantity"] - item.quantity
+            await db.products.update_one(
+                {"id": item.product_id},
+                {"$set": {"quantity": new_quantity}}
+            )
+    
+    doc = order.model_dump()
+    doc['created_at'] = doc['created_at'].isoformat()
+    await db.orders.insert_one(doc)
+    
+    await db.carts.update_one(
+        {"user_id": current_user["id"]},
+        {"$set": {"items": []}}
+    )
+    
+    await send_order_email(order)
+    
+    return {"order_id": order.id, "message": "Order placed successfully"}
+
+
+@api_router.get("/orders")
+async def get_user_orders(current_user: dict = Depends(get_current_user)):
+    orders = await db.orders.find({"user_id": current_user["id"]}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    for order in orders:
+        if isinstance(order.get('created_at'), str):
+            order['created_at'] = datetime.fromisoformat(order['created_at'])
+    return orders
+
+
+@api_router.get("/admin/orders")
+async def get_all_orders(current_user: dict = Depends(get_current_admin)):
+    orders = await db.orders.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    for order in orders:
+        if isinstance(order.get('created_at'), str):
+            order['created_at'] = datetime.fromisoformat(order['created_at'])
+    return orders
+
+
+@api_router.put("/admin/orders/{order_id}/status")
+async def update_order_status(order_id: str, status: str = Form(...), current_user: dict = Depends(get_current_admin)):
+    await db.orders.update_one({"id": order_id}, {"$set": {"status": status}})
+    return {"message": "Order status updated"}
+
+
+@api_router.get("/admin/customers")
+async def get_all_customers(current_user: dict = Depends(get_current_admin)):
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).to_list(1000)
+    
+    for user in users:
+        if isinstance(user.get('created_at'), str):
+            user['created_at'] = datetime.fromisoformat(user['created_at'])
+        
+        orders = await db.orders.find({"user_id": user["id"]}, {"_id": 0}).to_list(1000)
+        user["total_orders"] = len(orders)
+        user["last_order_date"] = orders[0]["created_at"] if orders else None
+    
+    return users
+
+
+@api_router.get("/admin/inventory")
+async def get_inventory(current_user: dict = Depends(get_current_admin)):
+    products = await db.products.find({}, {"_id": 0}).to_list(1000)
+    
+    for product in products:
+        if isinstance(product.get('created_at'), str):
+            product['created_at'] = datetime.fromisoformat(product['created_at'])
+        
+        collection = await db.collections.find_one({"id": product["collection_id"]}, {"_id": 0})
+        product["collection_name"] = collection["name"] if collection else ""
+    
+    return products
+
+
+@api_router.get("/banners")
+async def get_banners():
+    banners = await db.banners.find({"is_active": True}, {"_id": 0}).sort("order", 1).to_list(10)
+    return banners
+
+
+@api_router.post("/banners")
+async def create_banner(banner_data: BannerCreate, current_user: dict = Depends(get_current_admin)):
+    banner = Banner(**banner_data.model_dump())
+    await db.banners.insert_one(banner.model_dump())
+    return banner
+
+
+@api_router.put("/banners/{banner_id}")
+async def update_banner(banner_id: str, banner_data: BannerCreate, current_user: dict = Depends(get_current_admin)):
+    await db.banners.update_one({"id": banner_id}, {"$set": banner_data.model_dump()})
+    return {"message": "Banner updated"}
+
+
+@api_router.delete("/banners/{banner_id}")
+async def delete_banner(banner_id: str, current_user: dict = Depends(get_current_admin)):
+    await db.banners.delete_one({"id": banner_id})
+    return {"message": "Banner deleted"}
+
+
+@api_router.get("/content/{page_id}")
+async def get_content(page_id: str):
+    content = await db.content_pages.find_one({"id": page_id}, {"_id": 0})
+    if not content:
+        return {"id": page_id, "content": "", "updated_at": datetime.now(timezone.utc).isoformat()}
+    if isinstance(content.get('updated_at'), str):
+        content['updated_at'] = datetime.fromisoformat(content['updated_at'])
+    return content
+
+
+@api_router.put("/content/{page_id}")
+async def update_content(page_id: str, content_data: ContentUpdate, current_user: dict = Depends(get_current_admin)):
+    existing = await db.content_pages.find_one({"id": page_id}, {"_id": 0})
+    
+    if existing:
+        await db.content_pages.update_one(
+            {"id": page_id},
+            {"$set": {"content": content_data.content, "updated_at": datetime.now(timezone.utc).isoformat()}}
+        )
+    else:
+        page = ContentPage(id=page_id, content=content_data.content)
+        doc = page.model_dump()
+        doc['updated_at'] = doc['updated_at'].isoformat()
+        await db.content_pages.insert_one(doc)
+    
+    return {"message": "Content updated"}
+
+
+@api_router.get("/profile")
+async def get_profile(current_user: dict = Depends(get_current_user)):
+    user = await db.users.find_one({"id": current_user["id"]}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if isinstance(user.get('created_at'), str):
+        user['created_at'] = datetime.fromisoformat(user['created_at'])
+    
+    return user
+
+
+@api_router.put("/profile")
+async def update_profile(
+    full_name: str = Form(...),
+    mobile: str = Form(...),
+    address: str = Form(...),
+    current_user: dict = Depends(get_current_user)
+):
+    await db.users.update_one(
+        {"id": current_user["id"]},
+        {"$set": {"full_name": full_name, "mobile": mobile, "address": address}}
+    )
+    return {"message": "Profile updated"}
+
+
+app.include_router(api_router)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
+@app.on_event("startup")
+async def startup_db():
+    admin_exists = await db.admins.find_one({"email": "vsfashiiiion@gmail.com"}, {"_id": 0})
+    if not admin_exists:
+        admin = Admin(
+            email="vsfashiiiion@gmail.com",
+            password_hash=hash_password("vs@54321")
+        )
+        await db.admins.insert_one(admin.model_dump())
+        logger.info("Default admin account created")
+
+
+@app.on_event("shutdown")
+async def shutdown_db_client():
+    client.close()

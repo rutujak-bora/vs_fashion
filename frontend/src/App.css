@@ -1,0 +1,244 @@
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: #FAFAFA;
+  position: relative;
+}
+
+.App {
+  min-height: 100vh;
+}
+
+/* Traditional Indian Border Pattern */
+.traditional-border {
+  position: relative;
+  padding: 3rem 1.5rem;
+}
+
+.traditional-border::before,
+.traditional-border::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, 
+    #4A2836 0%, 
+    #C4969C 25%, 
+    #4A2836 50%, 
+    #C4969C 75%, 
+    #4A2836 100%
+  );
+}
+
+.traditional-border::before {
+  top: 0;
+}
+
+.traditional-border::after {
+  bottom: 0;
+}
+
+/* Traditional Corner Ornaments */
+.corner-ornament {
+  position: relative;
+}
+
+.corner-ornament::before,
+.corner-ornament::after {
+  content: '✦';
+  position: absolute;
+  font-size: 1.5rem;
+  color: #C4969C;
+  opacity: 0.6;
+}
+
+.corner-ornament::before {
+  top: 0;
+  left: 0;
+}
+
+.corner-ornament::after {
+  top: 0;
+  right: 0;
+}
+
+/* Traditional Divider */
+.traditional-divider {
+  text-align: center;
+  position: relative;
+  margin: 2rem 0;
+}
+
+.traditional-divider::before,
+.traditional-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 45%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #C4969C, transparent);
+}
+
+.traditional-divider::before {
+  left: 0;
+}
+
+.traditional-divider::after {
+  right: 0;
+}
+
+.traditional-divider span {
+  background: #FAFAFA;
+  padding: 0 1rem;
+  color: #4A2836;
+  font-size: 1.5rem;
+}
+
+/* Traditional Pattern Background */
+.pattern-bg {
+  background-image: 
+    repeating-linear-gradient(45deg, transparent, transparent 35px, rgba(196, 150, 156, 0.03) 35px, rgba(196, 150, 156, 0.03) 70px),
+    repeating-linear-gradient(-45deg, transparent, transparent 35px, rgba(74, 40, 54, 0.02) 35px, rgba(74, 40, 54, 0.02) 70px);
+}
+
+/* Mandala-inspired decorative element */
+.mandala-accent {
+  position: relative;
+}
+
+.mandala-accent::before {
+  content: '❋';
+  position: absolute;
+  font-size: 3rem;
+  color: #C4969C;
+  opacity: 0.15;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  animation: rotate-slow 30s linear infinite;
+}
+
+@keyframes rotate-slow {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+/* Traditional Card with ornate border */
+.ornate-card {
+  border: 2px solid #C4969C;
+  border-image: repeating-linear-gradient(
+    45deg,
+    #4A2836,
+    #4A2836 10px,
+    #C4969C 10px,
+    #C4969C 20px
+  ) 10;
+  position: relative;
+  padding: 2rem;
+  background: white;
+}
+
+/* Ethnic scroll pattern */
+.scroll-pattern {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 30c0-5.5 4.5-10 10-10s10 4.5 10 10-4.5 10-10 10-10-4.5-10-10zm0 0c0 5.5-4.5 10-10 10s-10-4.5-10-10 4.5-10 10-10 10 4.5 10 10z' fill='%23C4969C' fill-opacity='0.05' fill-rule='evenodd'/%3E%3C/svg%3E");
+}
+
+/* Traditional text shadow effect */
+.traditional-text {
+  text-shadow: 2px 2px 0px rgba(196, 150, 156, 0.2);
+}
+
+/* Henna-inspired corner decoration */
+.henna-corner {
+  position: relative;
+}
+
+.henna-corner::before {
+  content: '';
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  width: 40px;
+  height: 40px;
+  border-top: 3px solid #C4969C;
+  border-left: 3px solid #C4969C;
+  border-radius: 0 0 20px 0;
+}
+
+.henna-corner::after {
+  content: '';
+  position: absolute;
+  bottom: -10px;
+  right: -10px;
+  width: 40px;
+  height: 40px;
+  border-bottom: 3px solid #C4969C;
+  border-right: 3px solid #C4969C;
+  border-radius: 20px 0 0 0;
+}
+
+/* Traditional paisley pattern overlay */
+.paisley-overlay {
+  position: relative;
+  overflow: hidden;
+}
+
+.paisley-overlay::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 20c0 11.046 8.954 20 20 20s20-8.954 20-20S51.046 0 40 0 20 8.954 20 20zm40 20c0 11.046 8.954 20 20 20s20-8.954 20-20-8.954-20-20-20-20 8.954-20 20z' fill='%234A2836' fill-opacity='0.02' fill-rule='evenodd'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Golden accent line */
+.golden-line {
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.golden-line::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #C4969C, transparent);
+}
+
+/* Traditional frame effect */
+.traditional-frame {
+  border: 4px double #4A2836;
+  padding: 1rem;
+  position: relative;
+  background: white;
+}
+
+.traditional-frame::before {
+  content: '◆';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #FAFAFA;
+  padding: 0 10px;
+  color: #C4969C;
+  font-size: 1rem;
+}
