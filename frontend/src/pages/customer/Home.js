@@ -212,23 +212,22 @@ export default function Home() {
         )}
       </section>
 
-      {/* Home Collections Section */}
-      <section className="py-24 px-6 md:px-12 bg-[#F8F5F2]" data-testid="collections-section">
-        <div className="max-w-7xl mx-auto">
+      {/* Shop By Style Section (Home Collections) */}
+      <section className="py-24 bg-white" data-testid="collections-section">
+        <div className="w-full">
           <div className="text-center mb-16">
-            <h2 className="text-4xl traditional-text mb-4" style={{ fontFamily: 'Playfair Display', color: '#4A2836' }}>
-              Our Collections
+            <h2 className="text-2xl md:text-3xl tracking-[0.2em] uppercase" style={{ color: '#4A2836' }}>
+              SHOP BY STYLE
             </h2>
-            <div className="w-24 h-1 bg-[#8B1B4A] mx-auto"></div>
           </div>
 
           {homeCollections.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 md:gap-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-0">
               {homeCollections.map((collection) => (
                 <Link
                   key={collection.id}
                   to={`/collection/${collection.id}`}
-                  className="group relative overflow-hidden aspect-[4/5] shadow-md hover:shadow-xl transition-all duration-500 rounded-sm"
+                  className="group relative overflow-hidden aspect-[4/5] md:aspect-[3/4] block"
                 >
                   <img
                     src={(() => {
@@ -237,16 +236,22 @@ export default function Home() {
                       return img.startsWith('http') ? img : `${BACKEND_URL}${img}`;
                     })()}
                     alt={collection.name}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-6 text-white text-center">
-                    <h3 className="text-xl md:text-2xl mb-2 font-serif uppercase tracking-wider" style={{ fontFamily: 'Playfair Display' }}>
-                      {collection.name}
+                  {/* Text overlay perfectly matching "BOAT NECK", etc. */}
+                  <div className="absolute inset-x-0 top-0 pt-10 md:pt-14 flex flex-col items-center">
+                    <h3 
+                      className="text-xl md:text-3xl uppercase tracking-[0.25em] text-white text-center leading-tight drop-shadow-md" 
+                      style={{ fontFamily: 'Playfair Display, serif' }}
+                    >
+                      {/* To handle multi-word collections like HALTER NECK nicely */}
+                      {collection.name.split(' ').map((word, i) => (
+                        <span key={i} className="block">{word}</span>
+                      ))}
                     </h3>
-                    <div className="overflow-hidden h-0 group-hover:h-8 transition-all duration-300">
-                      <span className="text-sm border-b border-white pb-1 inline-block">Explore Now</span>
-                    </div>
                   </div>
+                  {/* Subtle dark gradient overlay to ensure text visibility on top if image is bright */}
+                  <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-black/20 opacity-70 group-hover:opacity-90 transition-opacity duration-300 pointer-events-none" />
                 </Link>
               ))}
             </div>
