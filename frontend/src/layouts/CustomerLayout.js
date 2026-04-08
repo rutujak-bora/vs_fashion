@@ -34,9 +34,11 @@ export default function CustomerLayout() {
   const fetchCollections = async () => {
     try {
       const response = await axios.get(`${API}/collections`);
-      setCollections(response.data);
+      const data = response.data;
+      setCollections(Array.isArray(data) ? data : data.data || []);
     } catch (error) {
       console.error('Error fetching collections:', error);
+      setCollections([]);
     }
   };
 
@@ -60,9 +62,9 @@ export default function CustomerLayout() {
 
             <Link to="/" data-testid="nav-logo" className="flex items-center gap-3">
               <div className="relative">
-                <img 
-                  src="/vs-fashion-logo.png" 
-                  alt="VS Fashion" 
+                <img
+                  src="/vs-fashion-logo.png"
+                  alt="VS Fashion"
                   className="h-14 w-14 object-contain"
                 />
               </div>
@@ -210,11 +212,11 @@ export default function CustomerLayout() {
             </div>
           </div>
         </div>
-        
+
         {/* Subtle Admin Link */}
         <div className="max-w-7xl mx-auto px-6 md:px-12 mt-8 pt-8 border-t border-white/20 text-center">
-          <Link 
-            to="/admin/login" 
+          <Link
+            to="/admin/login"
             data-testid="footer-admin-link"
             className="text-xs text-white/30 hover:text-white/60 transition-colors"
             style={{ letterSpacing: '0.1em' }}

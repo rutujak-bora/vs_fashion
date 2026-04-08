@@ -28,8 +28,9 @@ export default function Home() {
         axios.get(`${API}/collections?show_on_home=true`)
       ]);
 
-      if (bannersRes.data.length > 0) {
-        setBanners(bannersRes.data);
+      const banners = Array.isArray(bannersRes.data) ? bannersRes.data : bannersRes.data.data || [];
+      if (banners.length > 0) {
+        setBanners(banners);
       } else {
         // Fallback to local images if API has no banners
         setBanners([
@@ -48,14 +49,16 @@ export default function Home() {
           {
             id: 'local-3',
             image_url: '/images/Carousel/Carousel img3.jpeg',
-            title: 'Modern Traditional Style',
-            content: 'Where heritage meets fashion.'
+            title: 'VS Fashion Exclusive',
+            content: 'Meet VS Fashion Exclusive Collection'
           }
         ]);
       }
 
-      setTrendingProducts(productsRes.data);
-      setHomeCollections(collectionsRes.data.slice(0, 8));
+      const products = productsRes.data;
+      const collections = collectionsRes.data;
+      setTrendingProducts(Array.isArray(products) ? products : products.data || []);
+      setHomeCollections(Array.isArray(collections) ? collections.slice(0, 8) : (collections.data || []).slice(0, 8));
     } catch (error) {
       console.error('Error fetching data:', error);
       // Even on error, provide fallbacks
